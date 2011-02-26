@@ -88,16 +88,25 @@ class rlist:
         pipe.execute()
 
     def insert(self, index, value):
-        # TODO: use linsert if we're 2.1.1+
-        # Not thread-safe; we need WATCH, but if we're 2.1+, we'll have linsert
-        post = instance.lrange(self.index, index, -1)
-        pipe = instance.pipeline(transaction=True)
-        pipe.ltrim(self.index, 0, index - 1)
-        pipe.rpush(self.index, json.dumps(value))
-        for value in post:
-            # Already serialized...
-            pipe.rpush(self.index, value)
-        pipe.execute()
+        if index == 0:
+            instance.lpush(self.index, value)
+        else:
+            while True:
+                try:
+                    instance.watch(self.index)
+                except redis.exceptions.ResponseError:
+                    # Old, not thread-safe
+                    # TODO: warn user?
+                    pass
+                post = instance.lrange(self.index, index, -1)
+                pipe = instance.pipeline(transaction=True)
+                pipe.ltrim(self.index, 0, index - 1)
+                pipe.rpush(self.index, json.dumps(value))
+                for value in post:
+                    # Already serialized...
+                    pipe.rpush(self.index, value)
+                if pipe.execute():
+                    break
 
     def remove(self, value):
         for index, val in enumerate(self):
