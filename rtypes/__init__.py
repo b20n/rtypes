@@ -255,6 +255,7 @@ class rdict:
 
     def popitem(self):
         pair = instance.hgetall(self.index).popitem()
+        instance.hdel(self.index, pair[0])
         return (json.loads(pair[0]), json.loads(pair[1]))
 
     def setdefault(self, key, default=None):
@@ -268,7 +269,7 @@ class rdict:
         if kwargs:
             kvs = dict(kwargs)
         else:
-            kvs = dict(args)
+            kvs = dict(args[0])
         for key in kvs:
             instance.hset(self.index,
                           json.dumps(key),
