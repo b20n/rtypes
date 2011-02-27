@@ -7,6 +7,7 @@ Note that this project is something of a hack, and may make a mess if you actual
 ## Dependencies
 
 Python 2.6
+
 [redis-py](https://github.com/andymccurdy/redis-py)
 
 ## Getting started
@@ -25,10 +26,10 @@ Python 2.6
     bar = rtypes.rdict(a=3, b=5, c=111)
     bar.keys()
 
-## rtypes.rlist
+### rtypes.rlist
 
 `rtypes.rlist` provides functionality similar to that of Python's built-in `list` datastructure. `rlist.insert()` is not thread-safe if used with Redis versions that do not support the `WATCH` command.
 
-## rtypes.rdict
+### rtypes.rdict
 
 `rtypes.rdict` provides functionality similar to that of Python's built-in `dict` datastructure. There are several omissions from the API, including generators and views.
