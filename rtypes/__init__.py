@@ -23,6 +23,9 @@ class rlist:
         # str(foo)
         return str([json.loads(i) for i in instance.lrange(self.index, 0, -1)])
 
+    def __repr__(self):
+        return "rlist(%s)" % str(self)
+
     def __len__(self):
         # len(foo)
         return instance.llen(self.index)
@@ -143,3 +146,142 @@ class rlist:
             if not tmp_val:
                 break
         f.rename(tmp_index, self.index)
+
+
+class rdict:
+    def __init__(self, *args, **kwargs):
+        self.index = str(uuid.uuid4())
+        self.update(*args, **kwargs)
+
+    def __items__(self):
+        # Helper for deserializing all entries
+        maps = instance.hgetall(self.index)
+        ret = {}
+        for key in maps:
+            ret[json.loads(key)] = json.loads(maps[key])
+        return ret
+
+    def __str__(self):
+        # str(foo)
+        return str(self.__items__())
+
+    def __repr__(self):
+        return "rdict(%s)" % str(self)
+
+    def __len__(self):
+        # len(foo)
+        return instance.hlen(self.index)
+
+    def __getitem__(self, key):
+        # foo[key]
+        val = instance.hget(self.index, json.dumps(key))
+        if not val:
+            raise KeyError
+        return val
+
+    def __setitem__(self, key, value):
+        # foo[key] = value
+        instance.hset(self.index, json.dumps(key), json.dumps(value))
+
+    def __delitem__(self, key):
+        # del foo[key]
+        instance.hdel(self.index, json.dumps(key))
+
+    def __contains__(self, key):
+        # key in foo
+        return instance.hexists(self.index, json.dumps(key))
+
+    def __iter__(self):
+        return self.Iterator(self)
+
+    class Iterator:
+        def __init__(self, rdict):
+            # TODO: lazily load keys?
+            self.index = 0
+            self.keys = instance.hkeys(rdict.index)
+
+        def next(self):
+            if self.index < len(self.keys):
+                self.index += 1
+                return json.loads(self.keys[self.index - 1])
+            else:
+                raise StopIteration
+
+    # API
+
+    def clear(self):
+        instance.delete(self.index)
+
+    def copy(self):
+        return self.__items__()
+
+    def fromkeys(self, seq, value=None):
+        # not implementing class methods
+        raise NotImplemented
+
+    def get(self, key, value=None):
+        val = instance.hget(self.index, json.dumps(key))
+        if not val:
+            return value
+        return json.loads(val)
+
+    def has_key(self, key):
+        return self.__contains__(key)
+
+    def items(self):
+        return [(key, self[key]) for key in self]
+
+    def iteritems(self):
+        raise NotImplemented
+
+    def iterkeys(self):
+        raise NotImplemented
+
+    def itervalues(self):
+        raise NotImplemented
+
+    def keys(self):
+        return [json.loads(key) for key in instance.hkeys(self.index)]
+
+    def pop(self, key, **kwargs):
+        val = instance.hget(self.index, json.dumps(key))
+        if val is None:
+            if "default" in kwargs:
+                return kwargs["default"]
+            else:
+                raise KeyError
+        else:
+            return json.loads(val)
+
+    def popitem(self):
+        pair = instance.hgetall(self.index).popitem()
+        return (json.loads(pair[0]), json.loads(pair[1]))
+
+    def setdefault(self, key, default=None):
+        val = instance.hget(self.index, json.dumps(key))
+        if val is None:
+            instance.hset(self.index, json.dumps(key), json.dumps(default))
+            return default
+        return json.loads(val)
+
+    def update(self, *args, **kwargs):
+        if kwargs:
+            kvs = dict(kwargs)
+        else:
+            kvs = dict(args)
+        for key in kvs:
+            instance.hset(self.index,
+                          json.dumps(key),
+                          json.dumps(kvs[key]))
+
+    def values(self):
+        return [json.loads(val) for val in instance.hvals(self.index)]
+
+    def viewitems(self):
+        raise NotImplemented
+
+    def viewkeys(self):
+        raise NotImplemented
+
+    def viewvalues(self):
+        raise NotImplemented
